@@ -1,12 +1,11 @@
-import sys
 import json
 import os
+import sys
 from collections import defaultdict
 
 from sgqlc.endpoint.http import HTTPEndpoint
 
-
-GRAPHQL_SERVICE_URL = os.getenv("LEVO_BASE_URL","https://api.levo.ai/graphql")
+GRAPHQL_SERVICE_URL = os.getenv("GQL_SERVICE_URL", https://api.levo.ai/graphql")
 workspace_id = os.getenv("WORKSPACE_ID", "")
 org_id = os.getenv("ORG_ID", "")
 auth_token = os.getenv("AUTH_TOKEN", "")
@@ -17,7 +16,7 @@ def get_vulnerability_details(
 ):
     test_run_details = get_test_run_details(run_uuid)
     test_suite_runs = get_test_suite_runs(run_uuid)
-    vulnerabilities = defaultdict(list)
+    vulnerabilities = []
     for test_suite_run in test_suite_runs:
         test_suite_run_id = test_suite_run["testSuiteRunId"]
         test_suite_run_details = get_test_suite_run_details(run_uuid, test_suite_run_id)
@@ -39,14 +38,19 @@ def get_vulnerability_details(
                         and assertion["cwe"]
                         and "code" in assertion["cwe"]
                     ):
-                        vuln_details = {
-                            "assertion": assertion,
-                            "test_case": test_case_run,
-                            "test_suite": test_suite_run,
-                        }
+                        vulnerabilities.append(
+                            {
+                                "endpoint": test_suite_run["name"],
+                                "test_case_name": test_case_run["name"],
+                                "test_case_category": test_case_run["category"],
+                                "cwe": assertion["cwe"]["code"],
+                                "risk": assertion["risk"],
+                                "confidence": assertion["confidence"],
+                                "evidence": assertion["evidence"],
+                            }
+                        )
 
-                        vulnerabilities[assertion["cwe"]["code"]].append(vuln_details)
-    #print(vulnerabilities)
+    return json.dumps(vulnerabilities)
 
 
 def get_test_runs(my_runs_only: bool):
@@ -154,6 +158,12 @@ def get_test_suite_runs(run_uuid: str):
           meta: $meta
         }
       ) {
+        meta {
+            currentPage
+            pageSize
+            totalItems
+            totalPages
+        }
         testSuiteRuns {
           testSuiteRunId
           name
@@ -179,10 +189,27 @@ def get_test_suite_runs(run_uuid: str):
         },
     }
     response = execute_gql_query(query, variables)
-    test_suite_runs = response["data"][
-        "aiLevoApitestingRunsV1ApiTestRunsServiceGetTestSuiteRuns"
-    ]["testSuiteRuns"]
-    return test_suite_runs
+    meta = response["data"]["aiLevoApitestingRunsV1ApiTestRunsServiceGetTestSuiteRuns"][
+        "meta"
+    ]
+    data = []
+    data.extend(
+        response["data"]["aiLevoApitestingRunsV1ApiTestRunsServiceGetTestSuiteRuns"][
+            "testSuiteRuns"
+        ]
+    )
+    current_page = 1
+    while current_page < meta["totalPages"]:
+        variables["meta"]["page"] = current_page
+        response = execute_gql_query(query, variables)
+        data.extend(
+            response["data"][
+                "aiLevoApitestingRunsV1ApiTestRunsServiceGetTestSuiteRuns"
+            ]["testSuiteRuns"]
+        )
+        current_page += 1
+
+    return data
 
 
 def get_test_suite_run_details(run_uuid: str, test_suite_run_id: str):
@@ -245,6 +272,13 @@ def get_test_case_runs(run_uuid: str, test_suite_run_id: str):
           meta: $meta
         }
       ) {
+        meta {
+            currentPage
+            pageSize
+            totalItems
+            totalPages
+        }
+
         testCaseRuns {
           testCaseRunId
           testCaseRunUuid
@@ -261,13 +295,34 @@ def get_test_case_runs(run_uuid: str, test_suite_run_id: str):
     variables = {
         "runUuid": run_uuid,
         "suiteRunId": test_suite_run_id,
-        "meta": {"page": 0, "pageSize": 5},
+        "meta": {
+            "page": 0,
+            "pageSize": 10,
+            "sort": {"sortFields": ["startTime"], "sortDirection": "Asc"},
+        },
     }
     response = execute_gql_query(query, variables)
-    test_case_runs = response["data"][
-        "aiLevoApitestingRunsV1ApiTestRunsServiceGetTestCaseRuns"
-    ]["testCaseRuns"]
-    return test_case_runs
+    meta = response["data"]["aiLevoApitestingRunsV1ApiTestRunsServiceGetTestCaseRuns"][
+        "meta"
+    ]
+    data = []
+    data.extend(
+        response["data"]["aiLevoApitestingRunsV1ApiTestRunsServiceGetTestCaseRuns"][
+            "testCaseRuns"
+        ]
+    )
+    current_page = 1
+    while current_page < meta["totalPages"]:
+        variables["meta"]["page"] = current_page
+        response = execute_gql_query(query, variables)
+        data.extend(
+            response["data"]["aiLevoApitestingRunsV1ApiTestRunsServiceGetTestCaseRuns"][
+                "testCaseRuns"
+            ]
+        )
+        current_page += 1
+
+    return data
 
 
 def get_test_case_attachment(run_uuid: str, test_case_run_uuid: str):
@@ -323,4 +378,5 @@ def execute_gql_query(query, variables):
 
 if __name__ == "__main__":
     run_uuid = sys.argv[1]
-    get_vulnerability_details(run_uuid)
+    vulnerabilities = get_vulnerability_details(run_uuid)
+    print(vulnerabilities)
