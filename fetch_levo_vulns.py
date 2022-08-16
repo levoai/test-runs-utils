@@ -5,7 +5,7 @@ from collections import defaultdict
 
 from sgqlc.endpoint.http import HTTPEndpoint
 
-GRAPHQL_SERVICE_URL = os.getenv("GQL_SERVICE_URL", https://api.levo.ai/graphql")
+GRAPHQL_SERVICE_URL = os.getenv("GQL_SERVICE_URL", "https://api.levo.ai/graphql")
 workspace_id = os.getenv("WORKSPACE_ID", "")
 org_id = os.getenv("ORG_ID", "")
 auth_token = os.getenv("AUTH_TOKEN", "")
