@@ -14,17 +14,14 @@ auth_token = os.getenv("AUTH_TOKEN", "")
 def get_vulnerability_details(
     run_uuid: str,
 ):
-    test_run_details = get_test_run_details(run_uuid)
     test_suite_runs = get_test_suite_runs(run_uuid)
     vulnerabilities = []
     for test_suite_run in test_suite_runs:
         test_suite_run_id = test_suite_run["testSuiteRunId"]
-        test_suite_run_details = get_test_suite_run_details(run_uuid, test_suite_run_id)
         test_case_runs = get_test_case_runs(run_uuid, test_suite_run_id)
         for test_case_run in test_case_runs:
             if test_case_run["status"] != "CaseFailed":
                 continue
-            test_case_run_id = test_case_run["testCaseRunId"]
             test_case_run_uuid = test_case_run["testCaseRunUuid"]
             test_case_attachment = get_test_case_attachment(
                 run_uuid, test_case_run_uuid
@@ -33,23 +30,42 @@ def get_vulnerability_details(
             vuln_content = json.loads(content)
             for _, assertion in vuln_content["assertions"].items():
                 if assertion["status"] == "failure":
+                    vulnerability = {
+                        "endpoint": test_suite_run["name"],
+                        "test_case_name": test_case_run["name"],
+                        "test_case_category": test_case_run["category"],
+                        "risk": assertion["risk"],
+                        "confidence": assertion["confidence"],
+                        "evidence": assertion["evidence"],
+                        "solution": assertion["solution"],
+                        "reference": assertion["reference"],
+                        "overview": vuln_content["summary"]
+                    }
+                    if (
+                        "evidence" in assertion
+                        and assertion["evidence"]
+                        and "title" in assertion["evidence"]
+                    ):
+                        evidence = assertion["evidence"]["title"]
+                        vulnerability.update({"evidence": evidence})
                     if (
                         "cwe" in assertion
                         and assertion["cwe"]
                         and "code" in assertion["cwe"]
                     ):
-                        vulnerabilities.append(
-                            {
-                                "endpoint": test_suite_run["name"],
-                                "test_case_name": test_case_run["name"],
-                                "test_case_category": test_case_run["category"],
-                                "cwe": assertion["cwe"]["code"],
-                                "risk": assertion["risk"],
-                                "confidence": assertion["confidence"],
-                                "evidence": assertion["evidence"],
-                            }
-                        )
+                        cwe_code = assertion["cwe"]["code"]
+                        vulnerability.update({"cwe": cwe_code})
+                    if (
+                            "cwe" in assertion
+                            and assertion["cwe"]
+                            and "summary" in assertion["cwe"]
+                    ):
+                        cwe_summary = assertion["cwe"]["summary"]
+                        vulnerability.update({"summary": cwe_summary})
 
+                    vulnerabilities.append(
+                        vulnerability
+                    )
     return json.dumps(vulnerabilities)
 
 
