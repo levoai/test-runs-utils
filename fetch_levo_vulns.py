@@ -1,14 +1,23 @@
+#
+#  Copyright ©2022. Levo.ai Inc. All Rights Reserved.
+#  You may not copy, reproduce, distribute, publish, display, perform, modify, create derivative works, transmit,
+#  or in any way exploit any such software/code, nor may you distribute any part of this software/code over any network,
+#  including a local area network, sell or offer it for commercial purposes.
+#
+
 import json
 import os
 import sys
-from collections import defaultdict
 
 from sgqlc.endpoint.http import HTTPEndpoint
+
+from token_utils import _refresh_get_access_token
 
 GRAPHQL_SERVICE_URL = os.getenv("GQL_SERVICE_URL", "https://api.levo.ai/graphql")
 workspace_id = os.getenv("WORKSPACE_ID", "")
 org_id = os.getenv("ORG_ID", "")
 auth_token = os.getenv("AUTH_TOKEN", "")
+refresh_token = os.getenv("REFRESH_TOKEN", "")
 
 
 def get_vulnerability_details(
@@ -66,7 +75,7 @@ def get_vulnerability_details(
                     vulnerabilities.append(
                         vulnerability
                     )
-    return json.dumps(vulnerabilities)
+    print(json.dumps(vulnerabilities))
 
 
 def get_test_runs(my_runs_only: bool):
@@ -393,6 +402,7 @@ def execute_gql_query(query, variables):
 
 
 if __name__ == "__main__":
-    run_uuid = sys.argv[1]
-    vulnerabilities = get_vulnerability_details(run_uuid)
-    print(vulnerabilities)
+    test_run_uuid = sys.argv[1]
+    if (not auth_token or auth_token == "") and refresh_token:
+        auth_token = _refresh_get_access_token(refresh_token)
+    get_vulnerability_details(test_run_uuid)
