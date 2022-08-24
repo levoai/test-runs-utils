@@ -11,7 +11,7 @@ pip install sgqlc
 # Export the following ENV variables
 export WORKSPACE_ID=<32 digit UUID LEVO workspaceId>
 export ORG_ID=<32 digit UUID LEVO orgId>
-# You can get your REFRESH TOKEN from your user settings (https://app.levo.ai/settings/keys/cli)
+# You can get your REFRESH_TOKEN from user settings (https://app.levo.ai/settings/keys/cli)
 export REFRESH_TOKEN=<Levo Refresh Token>
 # AUTH_TOKEN is optional if you are providing REFRESH_TOKEN
 export AUTH_TOKEN=<Levo Access Token>
