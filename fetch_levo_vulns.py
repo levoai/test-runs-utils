@@ -75,7 +75,7 @@ def get_vulnerability_details(
                     vulnerabilities.append(
                         vulnerability
                     )
-    print(json.dumps(vulnerabilities))
+    return json.dumps(vulnerabilities)
 
 
 def get_test_runs(my_runs_only: bool):
@@ -405,4 +405,5 @@ if __name__ == "__main__":
     test_run_uuid = sys.argv[1]
     if (not auth_token or auth_token == "") and refresh_token:
         auth_token = _refresh_get_access_token(refresh_token)
-    get_vulnerability_details(test_run_uuid)
+    test_run_vulnerabilities = get_vulnerability_details(test_run_uuid)
+    print(test_run_vulnerabilities)
